@@ -1,10 +1,15 @@
-    
+import csv
+import pandas as pd
+from scipy.cluster.vq import vq, kmeans    
+from .cluster import Cluster
+from .point import Point
+
 class PointManager():
     
     def __init__(self, points):
         self.unassigned = points
         self.clusters = []
-        self.pre_defined_points = []
+        self.pre_defined = []
     
     def find_top_right(self):
         '''returns the point in the top right using lat and lng as x and y axis.
@@ -37,12 +42,24 @@ class PointManager():
         else:
             return distances
     
+    def find_clusters_fill(self, max_visits):
+        for p in self.pre_defined:
+            if self.unassigned:
+                nearest_index = self.find_nearest_point(p)
+                nearest = self.unassigned.pop(nearest_index[0])
+                #logging.debug('Nearest_point of {} is {}'.format(p.rec_id, nearest.rec_id))
+                queue = self.find_nearest_point(nearest, queue=True)
+                self.create_cluster_fill(nearest, queue, max_visits)
+        
+        if self.unassigned:
+            self.find_clusters_top_right(max_visits, max_type='visits', pre_defined=False)
+
     def find_clusters_inside_out(self, max_distance, granularity):
         
         for p in self.pre_defined:
             nearest_index = self.find_nearest_point(p)
             nearest = self.unassigned.pop(nearest_index[0])
-            logging.debug('Nearest_point of {} is {}'.format(p.rec_id, nearest.rec_id))
+            #logging.debug('Nearest_point of {} is {}'.format(p.rec_id, nearest.rec_id))
             queue = self.find_nearest_point(nearest, queue=True)
             self.create_cluster_queue(nearest, queue, max_distance)
         
@@ -50,13 +67,12 @@ class PointManager():
         for c in centres:
             nearest_index = self.find_nearest_point(c)
             nearest = self.unassigned.pop(nearest_index[0])
-            logging.debug('Nearest_point of {} is {}'.format(c.rec_id, nearest.rec_id))
+            #logging.debug('Nearest_point of {} is {}'.format(c.rec_id, nearest.rec_id))
             queue = self.find_nearest_point(nearest, queue=True)
             self.create_cluster_queue(nearest, queue, max_distance)
         
         if self.unassigned:
-            self.find_clusters_top_right(max_distance, pre_defined=False)
-            
+            self.find_clusters_top_right(max_distance, pre_defined=False)    
     
     def find_potential_centres(self, granularity):
         '''Applies the K-mean algortithm on the unassigned points and returns the centres.'''
@@ -97,10 +113,10 @@ class PointManager():
         while self.unassigned and max_iters>0:
             max_iters -= 1
             top_right = self.find_top_right()
-            logging.debug('creating around top_right {}'.format(top_right.rec_id))
+            #logging.debug('creating around top_right {}'.format(top_right.rec_id))
             if max_type == 'visits':
-                queue = self.find_nearest_points(top_right, queue=True)
-                self.create_cluster_filled(top_right, queue, maximum)
+                queue = self.find_nearest_point(top_right, queue=True)
+                self.create_cluster_fill(top_right, queue, maximum)
             else:
                 self.create_cluster(top_right, maximum, moving=False)
     
@@ -119,7 +135,7 @@ class PointManager():
             No output. Adds the created cluster to the cluster list of this class instance.
         '''
         
-        logging.info('Creating cluster for {}'.format(point.rec_id))
+        #logging.info('Creating cluster for {}'.format(point.rec_id))
         new_cluster = Cluster([point])
         
         max_distance_exceeded = False
@@ -127,7 +143,7 @@ class PointManager():
         while self.unassigned and not max_distance_exceeded:
             min_el = self.find_nearest_point(new_centre)
             minimum = self.unassigned.pop(min_el[0])
-            logging.debug('Nearest point is {} at {}'.format(minimum.rec_id, min_el[1]))
+            #logging.debug('Nearest point is {} at {}'.format(minimum.rec_id, min_el[1]))
             
             new_dist = new_cluster.stage_point(minimum)
             if new_dist > (max_distance*1000):
@@ -156,13 +172,13 @@ class PointManager():
         new_cluster = Cluster([point])
         to_pop = []
         max_distance_exceeded = False
-        logging.debug('Creating the queue thinghy')
+        #logging.debug('Creating the queue thinghy')
         
         while not max_distance_exceeded and queue:
             nearest = queue.pop(-1)
-            logging.debug('Nearest point is {}'.format(nearest[2].rec_id))
+            #logging.debug('Nearest point is {}'.format(nearest[2].rec_id))
             if not nearest[1] > (max_distance*1000):
-                logging.debug('adding point {}'.format(nearest[2].rec_id))
+                #logging.debug('adding point {}'.format(nearest[2].rec_id))
                 to_pop.append(nearest[0])
                 new_cluster.stage_point(nearest[2])
                 new_cluster.add_staged_point()
@@ -175,7 +191,7 @@ class PointManager():
         
         self.clusters.append(new_cluster)
         
-    def create_cluster_fill(self, point, queue, max_visits):
+    def create_cluster_fill(self, point, queue, max_visits, max_distance=150):
         '''This method creates a cluster by adding points until the max_visits is reached.
         To find points it adds point from the queue.
         args:
@@ -192,10 +208,10 @@ class PointManager():
         
         while not max_reached and queue:
             nearest = queue.pop(-1)
-            logging.debug('Nearest point is {}'.format(nearest[2].rec_id))
+            #logging.debug('Nearest point is {}'.format(nearest[2].rec_id))
             visits += nearest[2].visits
             
-            if visits > max_visits:
+            if visits > max_visits or nearest[1]>(max_distance*1000):
                 max_reached = True
             else:
                 new_cluster.stage_point(nearest[2])
@@ -204,7 +220,7 @@ class PointManager():
                 
         to_pop.sort(reverse=True)
         for i in to_pop:
-            self.assigned.pop(i)
+            self.unassigned.pop(i)
         
         self.clusters.append(new_cluster)
         
@@ -237,3 +253,7 @@ class PointManager():
                 if len(cluster.points) > min_size:
                     centre = cluster.find_centre()
                     writer.writerow([i, centre.lat, centre.lng])
+
+
+class ClusterManager():
+    pass

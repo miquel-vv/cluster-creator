@@ -1,3 +1,6 @@
+from .point import Point, DistanceCalculator
+from scipy.optimize import minimize
+
 class Cluster():
     def __init__(self, points=[]):
         self.points = points
@@ -31,7 +34,7 @@ class Cluster():
     
     def get_visits(self, staged=False):
         
-        if staged:
+        if not staged:
             points = self.points
         else:
             assert self.staged_points, "No point staged."
@@ -97,17 +100,39 @@ class Cluster():
         self.distance_calculator.points = self.points[:] #Shallow copy of list
         
         return self.distance_calculator([point.lat, point.lng])
-    
-    def max_distance_from_points(self, point, staged=False):
-        '''Returns the distance of from the given point to the point furthest away 
-        in the cluster.'''
+
+    def list_of_distances(self, point=None, centre=False, staged=False):
+        
+        if centre and not self.centre:
+            self.centre = self.find_centre()
+
         if not staged:
             assert self.points, "No points in this cluster"
-            return max([p.dist_to_other(point) for p in self.points])
+            if centre:
+                distances = [p.dist_to_other(self.centre) for p in self.points]
+            else:
+                distances = [p.dist_to_other(point) for p in self.points]
         else:
             assert self.staged_points, "No staged point."
-            return max([p.dist_to_other(point) for p in self.staged_points])
-    
+            if centre:
+                distances = [p.dist_to_other(self.centre) for p in self.staged_points]
+            else:
+                distances = [p.dist_to_other(point) for p in self.staged_points]
+        
+        return distances
+
+    def max_distance_from_points(self, point=None, centre=False, staged=False):
+        '''Returns the distance of from the given point to the point furthest away 
+        in the cluster.'''
+        distances = self.list_of_distances(point, centre, staged)
+        return max(distances)
+
+    def avg_distance_from_points(self, point=None, centre=False, staged=False):
+        '''Returns the distance of from the given point to the point furthest away 
+        in the cluster.'''
+        distances = self.list_of_distances(point, centre, staged)
+        return sum(distances)/len(distances)
+
     def points_index(self):
         '''returns a set with the rec_id of all points in the cluster.
         args: /

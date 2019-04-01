@@ -1,13 +1,4 @@
 import math
-import pandas as pd
-from scipy.optimize import minimize
-from scipy.cluster.vq import vq, kmeans
-
-import logging
-logging.basicConfig(filename=r'C:\Users\miquel.vandevelde\Cushman & Wakefield\Strategic Consulting EMEA - Documents\PROJECTS\CoA\Booking.com\Commute Analysis\v2 country\italy\alloc.log', 
-                    filemode='w', 
-                    format='%(message)s',
-                    level = logging.DEBUG)
 
 class DistanceCalculator():
     """A Class to support the objective function that will need to be minimized"""
