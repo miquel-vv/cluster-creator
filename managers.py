@@ -41,8 +41,28 @@ class PointManager():
             return distances.pop(-1)
         else:
             return distances
+
+    def find_fixed_only(self, max_distance, including_fixed=True):
+        '''Clusters the points to the fixed points only and leaves the rest unassigned
+        args: 
+            max_distance: the area around the points that can be clustered.
+        output:
+            fills the self.clusters list.'''
+
+        for p in self.pre_defined:
+            if self.unassigned:
+                if not including_fixed:
+                    nearest_index = self.find_nearest_point(p)
+                    point = self.unassigned.pop(nearest_index[0])
+                else:
+                    point = p
+                #logging.debug('Nearest_point of {} is {}'.format(p.rec_id, nearest.rec_id))
+                queue = self.find_nearest_point(point, queue=True)
+                self.create_cluster_fill(point, queue, max_distance=max_distance)
     
     def find_clusters_fill(self, max_visits):
+        '''Starts by filling the fixed points and then fills the furthest maximally.'''
+
         for p in self.pre_defined:
             if self.unassigned:
                 nearest_index = self.find_nearest_point(p)
@@ -55,6 +75,8 @@ class PointManager():
             self.find_clusters_top_right(max_visits, max_type='visits', pre_defined=False)
 
     def find_clusters_inside_out(self, max_distance, granularity):
+        '''After the fixed points, starts by picking approximately evenly spread out points and fills 
+        those first then fills in the furthest point.'''
         
         for p in self.pre_defined:
             nearest_index = self.find_nearest_point(p)
@@ -191,7 +213,7 @@ class PointManager():
         
         self.clusters.append(new_cluster)
         
-    def create_cluster_fill(self, point, queue, max_visits, max_distance=150):
+    def create_cluster_fill(self, point, queue, max_visits=0, max_distance=150):
         '''This method creates a cluster by adding points until the max_visits is reached.
         To find points it adds point from the queue.
         args:
@@ -211,7 +233,7 @@ class PointManager():
             #logging.debug('Nearest point is {}'.format(nearest[2].rec_id))
             visits += nearest[2].visits
             
-            if visits > max_visits or nearest[1]>(max_distance*1000):
+            if (visits > max_visits and max_visits) or nearest[1]>(max_distance*1000):
                 max_reached = True
             else:
                 new_cluster.stage_point(nearest[2])

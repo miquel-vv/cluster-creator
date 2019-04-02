@@ -1,8 +1,29 @@
-import os
+import os, csv
 import pandas as pd
 from .point import Point
 from .cluster import Cluster
 from .managers import PointManager
+
+def cluster_around_points(filename, fixed_points, max_distance):
+    '''Find the amount of points within max_distance of the points provided.
+    args:
+        filename: file in csv format with all the points that need to be assigned.
+        fixed_points: The points in which radius we are going to count the points
+        max_distance: the radius around the fixed points.
+    output:
+        a csv file in the same directory as the original. containing the fixed points and the amount of
+        other points within the radius.'''
+    file_output = os.path.join(os.path.dirname(filename), os.path.basename(filename).split('.')[0] + "_counted.csv")
+    df = pd.read_csv(filename, index_col=0)
+    manager = create_manager(df, fixed_points)
+
+    manager.find_fixed_only(max_distance)
+
+    with open(file_output, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['cluster_id', 'name', 'lat', 'lng', 'amount'])
+        for i, c in enumerate(manager.clusters):
+            writer.writerow([i, fixed_points[i].rec_id, fixed_points[i].lat, fixed_points[i].lng, len(c.points)-1])
 
 def from_file(filename, area, granularity=25, office_size=10, fixed_points=None):
     '''Reduces the amount of points from the inside out.
