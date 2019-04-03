@@ -42,10 +42,13 @@ class PointManager():
         else:
             return distances
 
-    def find_fixed_only(self, max_distance, including_fixed=True):
+    def find_fixed_only(self, max_distance, including_fixed=True, double_counting=True):
         '''Clusters the points to the fixed points only and leaves the rest unassigned
         args: 
             max_distance: the area around the points that can be clustered.
+            including_fixed: Boolean to assess wether the fixed points should be included in the cluster or not.
+            double_counting: Boolean to determine if the points should be double counted or not. (i.e. If there are 
+                            overlapping areas, points will be added to both clusters.)
         output:
             fills the self.clusters list.'''
 
@@ -58,7 +61,7 @@ class PointManager():
                     point = p
                 #logging.debug('Nearest_point of {} is {}'.format(p.rec_id, nearest.rec_id))
                 queue = self.find_nearest_point(point, queue=True)
-                self.create_cluster_fill(point, queue, max_distance=max_distance)
+                self.create_cluster_fill(point, queue, max_distance=max_distance, double_counting=double_counting)
     
     def find_clusters_fill(self, max_visits):
         '''Starts by filling the fixed points and then fills the furthest maximally.'''
@@ -112,9 +115,9 @@ class PointManager():
                    'lng': lng}
 
         lat_lng = pd.DataFrame(lat_lng, index=index)
-        guess = len(lat_lng)//granularity
+        guess = max([len(lat_lng)//granularity, 2]) #The initial guess can't be zero.
         centres,_ = kmeans(lat_lng, guess)
-        
+
         return [Point('start', p[0], p[1]) for p in centres]
     
     def find_clusters_top_right(self, maximum, max_type='distance',pre_defined=True):
@@ -213,7 +216,7 @@ class PointManager():
         
         self.clusters.append(new_cluster)
         
-    def create_cluster_fill(self, point, queue, max_visits=0, max_distance=150):
+    def create_cluster_fill(self, point, queue, max_visits=0, max_distance=150, double_counting=False):
         '''This method creates a cluster by adding points until the max_visits is reached.
         To find points it adds point from the queue.
         args:
@@ -239,10 +242,11 @@ class PointManager():
                 new_cluster.stage_point(nearest[2])
                 new_cluster.add_staged_point()
                 to_pop.append(nearest[0])
-                
-        to_pop.sort(reverse=True)
-        for i in to_pop:
-            self.unassigned.pop(i)
+        
+        if not double_counting:
+            to_pop.sort(reverse=True)
+            for i in to_pop:
+                self.unassigned.pop(i)
         
         self.clusters.append(new_cluster)
         
@@ -272,7 +276,7 @@ class PointManager():
             writer.writerow(['office_id', 'lat', 'lng'])
 
             for i, cluster in enumerate(self.clusters):
-                if len(cluster.points) > min_size:
+                if len(cluster.points) >= min_size:
                     centre = cluster.find_centre()
                     writer.writerow([i, centre.lat, centre.lng])
 

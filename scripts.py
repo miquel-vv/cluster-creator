@@ -25,7 +25,7 @@ def cluster_around_points(filename, fixed_points, max_distance):
         for i, c in enumerate(manager.clusters):
             writer.writerow([i, fixed_points[i].rec_id, fixed_points[i].lat, fixed_points[i].lng, len(c.points)-1])
 
-def from_file(filename, area, granularity=25, office_size=10, fixed_points=None):
+def from_file(filename, area, granularity=25, office_size=7, fixed_points=None):
     '''Reduces the amount of points from the inside out.
     args:
         filename: csv format file with the points.
@@ -70,9 +70,9 @@ def get_max_and_avg_distance(partners):
     for r, val in partners.iterrows():
         point = Point(r, val['lat'], val['lng'])
         try:
-            clusters[val['cluster']].points.append(point)   #Circumvents the staging process
+            clusters[val['cluster_id']].points.append(point)   #Circumvents the staging process
         except KeyError:
-            clusters[val['cluster']] = Cluster([point])
+            clusters[val['cluster_id']] = Cluster([point])
 
     averages = []
     max_dist = 0
