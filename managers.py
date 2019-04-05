@@ -132,7 +132,7 @@ class PointManager():
         '''
         if pre_defined:
             for p in self.pre_defined:
-                self.create_cluster(p, max_distance, moving=False)
+                self.create_cluster(p, maximum, moving=False)
         
         max_iters = len(self.unassigned)
         while self.unassigned and max_iters>0:
@@ -141,7 +141,7 @@ class PointManager():
             #logging.debug('creating around top_right {}'.format(top_right.rec_id))
             if max_type == 'visits':
                 queue = self.find_nearest_point(top_right, queue=True)
-                self.create_cluster_fill(top_right, queue, maximum)
+                self.create_cluster_fill(top_right, queue, max_visits=maximum)
             else:
                 self.create_cluster(top_right, maximum, moving=False)
     
@@ -216,7 +216,7 @@ class PointManager():
         
         self.clusters.append(new_cluster)
         
-    def create_cluster_fill(self, point, queue, max_visits=0, max_distance=150, double_counting=False):
+    def create_cluster_fill(self, point, queue, max_visits=0, max_distance=100, double_counting=False):
         '''This method creates a cluster by adding points until the max_visits is reached.
         To find points it adds point from the queue.
         args:
@@ -268,7 +268,7 @@ class PointManager():
             
         return df.assign(cluster_id=cluster_id)
     
-    def create_centres_csv(self, filename, min_size):
+    def create_centres_csv(self, filename, min_size=0):
         with open(filename,
                   'w',
                   newline='') as f:

@@ -45,7 +45,7 @@ class Point():
     def dist_to_origin(self):
         '''Doesnt use the haversine formula as the carthesian distance is prop accurate enough
         for this purpose.'''
-        return ((self.lat*1000)**2 + (self.lng*1000)**2)**(1/2)
+        return self.dist_to_other((0,0))
     
     def dist_to_other(self, other):
         if isinstance(other, Point):

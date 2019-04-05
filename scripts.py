@@ -25,7 +25,29 @@ def cluster_around_points(filename, fixed_points, max_distance):
         for i, c in enumerate(manager.clusters):
             writer.writerow([i, fixed_points[i].rec_id, fixed_points[i].lat, fixed_points[i].lng, len(c.points)-1])
 
-def from_file(filename, area, granularity=25, office_size=7, fixed_points=None):
+def find_employees(filename, max_visits):
+    '''Reduces the amount of points filling out each cluster to the max amount if visits.
+    args:
+        filename: csv format file with the points.
+        area: distance in KM.
+        granularity: the granularity for the clustering algorithm.
+        fixed_points: Any fixed points to include.
+    
+    output:
+        a file in the same directory with the csv file of the initial dataframe with a column with cluster id.
+        and a file in the same directory with the centres of the clusters.'''
+
+    file_output = os.path.join(os.path.dirname(filename), os.path.basename(filename).split('.')[0] + "_employees.csv")
+    df = pd.read_csv(filename, index_col=0)
+
+    manager = create_manager(df, visits=True)
+    manager.find_clusters_fill(max_visits)
+    df = manager.assign_clusters(df)
+
+    manager.create_centres_csv(file_output)    #Export the centres of the clusters.
+    df.to_csv(filename)    #Assign extra column to initial dataframe
+
+def find_offices(filename, area, granularity=25, office_size=7, fixed_points=None):
     '''Reduces the amount of points from the inside out.
     args:
         filename: csv format file with the points.
@@ -37,7 +59,7 @@ def from_file(filename, area, granularity=25, office_size=7, fixed_points=None):
         a file in the same directory with the csv file of the initial dataframe with a column with cluster id.
         and a file in the same directory with the centres of the clusters.'''
 
-    file_output = os.path.join(os.path.dirname(filename), os.path.basename(filename).split('.')[0] + "_reduced.csv")
+    file_output = os.path.join(os.path.dirname(filename), os.path.basename(filename).split('.')[0] + "_offices.csv")
     df = pd.read_csv(filename, index_col=0)
 
     manager = create_manager(df, fixed_points)
@@ -65,7 +87,7 @@ def create_manager(df, fixed_points=None, visits=False):
 
 def get_max_and_avg_distance(partners):
     partners = pd.read_csv(partners)
-    
+
     clusters = {}
     for r, val in partners.iterrows():
         point = Point(r, val['lat'], val['lng'])
