@@ -85,16 +85,16 @@ def create_manager(df, fixed_points=None, visits=False):
     return manager
     
 
-def get_max_and_avg_distance(partners):
+def get_max_and_avg_distance(partners, column_name):
     partners = pd.read_csv(partners)
 
     clusters = {}
     for r, val in partners.iterrows():
         point = Point(r, val['lat'], val['lng'])
         try:
-            clusters[val['cluster_id']].points.append(point)   #Circumvents the staging process
+            clusters[val[column_name]].points.append(point)   #Circumvents the staging process
         except KeyError:
-            clusters[val['cluster_id']] = Cluster([point])
+            clusters[val[column_name]] = Cluster([point])
 
     averages = []
     max_dist = 0
