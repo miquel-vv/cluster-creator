@@ -273,7 +273,7 @@ class PointManager():
                   'w',
                   newline='') as f:
             writer = csv.writer(f, delimiter=',')
-            writer.writerow(['office_id', 'lat', 'lng'])
+            writer.writerow(['id', 'lat', 'lng'])
 
             for i, cluster in enumerate(self.clusters):
                 if len(cluster.points) >= min_size:

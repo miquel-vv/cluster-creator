@@ -1,8 +1,62 @@
-import os, csv
+import os, csv, logging
 import pandas as pd
 from .point import Point
 from .cluster import Cluster
 from .managers import PointManager
+
+logging.basicConfig(level=logging.DEBUG)
+
+def perform_two_step_clustering(partners_file, weightings_file, visits, areas):
+    '''
+    args: 
+        partner_filename: The file with all the partners to be analysed
+        weightings: the file with the weightings of the adf-levels
+        visits: The max amount of visits one employee can carry out.
+        areas: A list of areas to be analysed, all in KMs.
+    output:
+        The whole file structure containing all the necessary files for mapping.
+    '''
+    assign_weightings(partners_file, weightings_file)
+
+    folder = os.path.dirname(partners_file)
+    if not folder:
+        folder = os.getcwd()
+
+    logging.info('Creating folders...')
+    for area in areas:
+        os.mkdir(os.path.join(folder, str(area)+'km'))
+
+    logging.info('Running first clustering...')
+    employee_file = find_employees(partners_file, visits)
+    employees = pd.read_csv(employee_file, index_col=0)
+
+    for area in areas:
+        logging.info('Running subclustering for '+str(area)+' KM')
+        os.chdir(os.path.join(folder, str(area)+'km'))
+        employees.to_csv('employees.csv')
+        find_offices('employees.csv', area)
+
+def assign_weightings(partners_file, weightings_file):
+    '''Assigns the weightings to the partner file in the annual visits column.
+    args:
+        partners_file: the file with all the partners in csv format. Needs to have a column labelled 'adf'
+        weightings_file: csv file containing the weightings. first column is adf_label, second is the 
+                        annual visits.
+    output:
+        No output. The partners_file has an extra column named 'annual_visits'.
+    '''
+    partners = pd.read_csv(partners_file)
+
+    with open(weightings_file, 'r') as file:
+        reader = csv.reader(file, delimiter=',')
+        reader.__next__()
+        weightings = {r[0]: r[1] for r in reader}
+    
+    annual_visits = []
+    for _,partner in partners.iterrows():
+        annual_visits.append(weightings[partner['adf']])
+    
+    partners.assign(annual_visits=annual_visits)
 
 def cluster_around_points(filename, fixed_points, max_distance):
     '''Find the amount of points within max_distance of the points provided.
@@ -37,7 +91,7 @@ def find_employees(filename, max_visits):
         a file in the same directory with the csv file of the initial dataframe with a column with cluster id.
         and a file in the same directory with the centres of the clusters.'''
 
-    file_output = os.path.join(os.path.dirname(filename), os.path.basename(filename).split('.')[0] + "_employees.csv")
+    file_output = os.path.join(os.path.dirname(filename), "employees.csv")
     df = pd.read_csv(filename, index_col=0)
 
     manager = create_manager(df, visits=True)
@@ -46,6 +100,7 @@ def find_employees(filename, max_visits):
 
     manager.create_centres_csv(file_output)    #Export the centres of the clusters.
     df.to_csv(filename)    #Assign extra column to initial dataframe
+    return file_output
 
 def find_offices(filename, area, granularity=25, office_size=7, fixed_points=None):
     '''Reduces the amount of points from the inside out.
@@ -59,7 +114,7 @@ def find_offices(filename, area, granularity=25, office_size=7, fixed_points=Non
         a file in the same directory with the csv file of the initial dataframe with a column with cluster id.
         and a file in the same directory with the centres of the clusters.'''
 
-    file_output = os.path.join(os.path.dirname(filename), os.path.basename(filename).split('.')[0] + "_offices.csv")
+    file_output = os.path.join(os.path.dirname(filename), "offices.csv")
     df = pd.read_csv(filename, index_col=0)
 
     manager = create_manager(df, fixed_points)
