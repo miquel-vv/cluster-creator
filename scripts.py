@@ -1,8 +1,6 @@
 import os, csv, logging
 import pandas as pd
-from .point import Point
-from .cluster import Cluster
-from .managers import PointManager
+from .geo_tools import Point, Cluster, PointManager
 from .geojson_transformer import create_geojson
 
 logging.basicConfig(level=logging.DEBUG)
