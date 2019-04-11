@@ -3,6 +3,7 @@ import pandas as pd
 from .point import Point
 from .cluster import Cluster
 from .managers import PointManager
+from .geojson_transformer import create_geojson
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -28,6 +29,8 @@ def perform_two_step_clustering(partners_file, weightings_file, visits, areas):
 
     logging.info('Running first clustering...')
     employee_file = find_employees(partners_file, visits)
+    logging.info('Creating partners geojson...')
+    create_geojson(partners_file)
     employees = pd.read_csv(employee_file, index_col=0)
 
     for area in areas:
@@ -35,6 +38,8 @@ def perform_two_step_clustering(partners_file, weightings_file, visits, areas):
         os.chdir(os.path.join(folder, str(area)+'km'))
         employees.to_csv('employees.csv')
         find_offices('employees.csv', area)
+        create_geojson('employees.csv')
+        create_geojson('offices.csv')
 
 def assign_weightings(partners_file, weightings_file):
     '''Assigns the weightings to the partner file in the annual visits column.
