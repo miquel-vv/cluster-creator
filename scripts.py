@@ -48,7 +48,7 @@ def assign_weightings(partners_file, weightings_file):
     output:
         No output. The partners_file has an extra column named 'annual_visits'.
     '''
-    partners = pd.read_csv(partners_file)
+    partners = pd.read_csv(partners_file, index_col=0)
 
     with open(weightings_file, 'r') as file:
         reader = csv.reader(file, delimiter=',')
@@ -59,7 +59,8 @@ def assign_weightings(partners_file, weightings_file):
     for _,partner in partners.iterrows():
         annual_visits.append(weightings[partner['adf']])
     
-    partners.assign(annual_visits=annual_visits)
+    partners = partners.assign(annual_visits=annual_visits)
+    partners.to_csv(partners_file)
 
 def cluster_around_points(filename, fixed_points, max_distance):
     '''Find the amount of points within max_distance of the points provided.

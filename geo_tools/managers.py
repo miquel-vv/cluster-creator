@@ -18,7 +18,9 @@ class PointManager():
         max_value = 0
         max_location = 0
         for i, p in enumerate(self.unassigned):
-            if p.dist_to_origin() > max_value:
+            dist_to_origin = p.dist_to_origin()
+            if dist_to_origin > max_value:
+                max_value = dist_to_origin
                 max_location = i
         return self.unassigned.pop(max_location)
     
@@ -90,11 +92,12 @@ class PointManager():
         
         centres = self.find_potential_centres(granularity)
         for c in centres:
-            nearest_index = self.find_nearest_point(c)
-            nearest = self.unassigned.pop(nearest_index[0])
-            #logging.debug('Nearest_point of {} is {}'.format(c.rec_id, nearest.rec_id))
-            queue = self.find_nearest_point(nearest, queue=True)
-            self.create_cluster_queue(nearest, queue, max_distance)
+            if self.unassigned:
+                nearest_index = self.find_nearest_point(c)
+                nearest = self.unassigned.pop(nearest_index[0])
+                #logging.debug('Nearest_point of {} is {}'.format(c.rec_id, nearest.rec_id))
+                queue = self.find_nearest_point(nearest, queue=True)
+                self.create_cluster_queue(nearest, queue, max_distance)
         
         if self.unassigned:
             self.find_clusters_top_right(max_distance, pre_defined=False)    
@@ -216,7 +219,7 @@ class PointManager():
         
         self.clusters.append(new_cluster)
         
-    def create_cluster_fill(self, point, queue, max_visits=0, max_distance=100, double_counting=False):
+    def create_cluster_fill(self, point, queue, max_visits=0, max_distance=200, double_counting=False):
         '''This method creates a cluster by adding points until the max_visits is reached.
         To find points it adds point from the queue.
         args:

@@ -36,15 +36,12 @@ class Point():
         delta_phi = math.radians(lat2-lat1)
         delta_lambda = math.radians(lng2-lng1)
 
-        a = (math.sin(delta_phi/2)*math.sin(delta_phi/2) + 
-             math.cos(phi1)*math.cos(phi2)*math.sin(delta_lambda/2)*math.sin(delta_lambda/2))
-        c = 2*math.atan2(math.sqrt(a), math.sqrt(1-a))
+        a = (math.sin(delta_phi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(delta_lambda/2)**2)
+        c = 2*math.asin(math.sqrt(a))
 
         return r*c
     
     def dist_to_origin(self):
-        '''Doesnt use the haversine formula as the carthesian distance is prop accurate enough
-        for this purpose.'''
         return self.dist_to_other((0,0))
     
     def dist_to_other(self, other):
