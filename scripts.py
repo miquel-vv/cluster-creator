@@ -5,7 +5,7 @@ from .geojson_transformer import create_geojson
 
 logging.basicConfig(level=logging.DEBUG)
 
-def perform_two_step_clustering(partners_file, weightings_file, visits, areas):
+def perform_two_step_clustering(partners_file, weightings_file, visits, areas, fixed_points=None):
     '''
     args: 
         partner_filename: The file with all the partners to be analysed
@@ -35,7 +35,7 @@ def perform_two_step_clustering(partners_file, weightings_file, visits, areas):
         logging.info('Running subclustering for '+str(area)+' KM')
         os.chdir(os.path.join(folder, str(area)+'km'))
         employees.to_csv('employees.csv')
-        find_offices('employees.csv', area)
+        find_offices('employees.csv', area, fixed_points=fixed_points)
         create_geojson('employees.csv')
         create_geojson('offices.csv')
 
