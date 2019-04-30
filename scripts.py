@@ -31,13 +31,7 @@ def perform_two_step_clustering(partners_file, weightings_file, visits, areas, f
     create_geojson(partners_file)
     employees = pd.read_csv(employee_file, index_col=0)
 
-    for area in areas:
-        logging.info('Running subclustering for '+str(area)+' KM')
-        os.chdir(os.path.join(folder, str(area)+'km'))
-        employees.to_csv('employees.csv')
-        find_offices('employees.csv', area, fixed_points=fixed_points)
-        create_geojson('employees.csv')
-        create_geojson('offices.csv')
+    find_offices_multiple_areas(folder, areas, fixed_points)
 
 def assign_weightings(partners_file, weightings_file):
     '''Assigns the weightings to the partner file in the annual visits column.
@@ -105,6 +99,18 @@ def find_employees(filename, max_visits):
     manager.create_centres_csv(file_output)    #Export the centres of the clusters.
     df.to_csv(filename)    #Assign extra column to initial dataframe
     return file_output
+
+def find_offices_multiple_areas(folder, areas, fixed_points):
+    '''Creates a folder for each radius used to cluster employees into an office and stores
+    the results there.'''
+
+    for area in areas:
+        logging.info('Running subclustering for '+str(area)+' KM')
+        os.chdir(os.path.join(folder, str(area)+'km'))
+        employees.to_csv('employees.csv')
+        find_offices('employees.csv', area, fixed_points=fixed_points)
+        create_geojson('employees.csv')
+        create_geojson('offices.csv')
 
 def find_offices(filename, area, granularity=25, office_size=7, fixed_points=None):
     '''Reduces the amount of points from the inside out.
