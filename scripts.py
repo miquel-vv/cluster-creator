@@ -2,6 +2,8 @@ import os, csv, logging
 import pandas as pd
 from .geo_tools import Point, Cluster, PointManager
 from .geojson_transformer import create_geojson
+import numpy as np
+from scipy.cluster.vq import vq
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -151,6 +153,15 @@ def create_manager(df, fixed_points=None, visits=False):
     
 
 def get_max_and_avg_distance(partners, column_name):
+    '''
+    Looks for the distance between the cluster centres.
+    args:
+        partners: The partner file in csv format and coordinates in the lat and lng column.
+        column_name: The name of the column that identifies to which cluster a partner is assigned to.
+    returns:
+        a tuple: ((maximum distance, cluster id with the max distance), average distance)
+    '''
+
     partners = pd.read_csv(partners)
 
     clusters = {}
@@ -171,3 +182,28 @@ def get_max_and_avg_distance(partners, column_name):
             max_cluster_id = c_id
     
     return (max_dist, max_cluster_id), (sum(averages)/len(averages))
+
+
+def assign_current_offices(partners_file, offices_file):
+    '''
+    Assigns partners to the nearest office by straight line distance
+    args:
+        partners_file: the partners file in csv format and coordinates in the lat and lng column.
+        offices_file: the offices file in csv format and coordinates in the lat and lng column.
+    returns:
+        updates the partners_file with an additional column containing the id for the office they where matched to.
+        The id is the order number of the office in the offices file. e.g. office_id = 1 is the second office in the
+        offices_file.
+    '''
+    offices = pd.read_csv(offices_file,
+                          index_col=0)
+
+    office_array = np.array([[o['lat'], o['lng']] for _, o in offices.iterrows()])
+    partners = pd.read_csv(partners_file,
+                           index_col=0)
+
+    lat_lng = {'lat': partners['lat'], 'lng': partners['lng']}
+    lat_lng = pd.DataFrame(lat_lng, index=partners.index)
+    cls,_ = vq(lat_lng, office_array)
+    partners = partners.assign(current_office_id=cls)
+    partners.to_csv(partners_file)
