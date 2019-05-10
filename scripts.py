@@ -35,7 +35,7 @@ def perform_two_step_clustering(partners_file, weightings_file, visits, areas, f
 
     find_offices_multiple_areas(folder, areas, fixed_points)
 
-def assign_weightings(partners_file, weightings_file):
+def assign_weightings(partners_file, weightings_file, weighting_name='annual_visits'):
     '''Assigns the weightings to the partner file in the annual visits column.
     args:
         partners_file: the file with all the partners in csv format. Needs to have a column labelled 'adf'
@@ -51,11 +51,15 @@ def assign_weightings(partners_file, weightings_file):
         reader.__next__()
         weightings = {r[0]: r[1] for r in reader}
     
-    annual_visits = []
+    weighting = []
     for _,partner in partners.iterrows():
-        annual_visits.append(weightings[partner['adf']])
+        weighting.append(weightings[partner['adf']])
     
-    partners = partners.assign(annual_visits=annual_visits)
+    kwarg = {
+        weighting_name: weighting
+    }
+    
+    partners = partners.assign(**kwarg)
     partners.to_csv(partners_file)
 
 def cluster_around_points(filename, fixed_points, max_distance):

@@ -219,7 +219,7 @@ class PointManager():
         
         self.clusters.append(new_cluster)
         
-    def create_cluster_fill(self, point, queue, max_visits=0, max_distance=100, double_counting=False):
+    def create_cluster_fill(self, point, queue, max_visits=0, max_distance=200, double_counting=False):
         '''This method creates a cluster by adding points until the max_visits is reached.
         To find points it adds point from the queue.
         args:
