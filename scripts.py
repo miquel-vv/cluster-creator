@@ -31,7 +31,6 @@ def perform_two_step_clustering(partners_file, weightings_file, visits, areas, f
     employee_file = find_employees(partners_file, visits)
     logging.info('Creating partners geojson...')
     create_geojson(partners_file)
-    employees = pd.read_csv(employee_file, index_col=0)
 
     find_offices_multiple_areas(folder, areas, fixed_points)
 
@@ -106,15 +105,17 @@ def find_employees(filename, max_visits):
     df.to_csv(filename)    #Assign extra column to initial dataframe
     return file_output
 
-def find_offices_multiple_areas(folder, areas, fixed_points):
+def find_offices_multiple_areas(folder, areas, fixed_points, office_size=7):
     '''Creates a folder for each radius used to cluster employees into an office and stores
     the results there.'''
+
+    employees = pd.read_csv('employees.csv', index_col=0)
 
     for area in areas:
         logging.info('Running subclustering for '+str(area)+' KM')
         os.chdir(os.path.join(folder, str(area)+'km'))
         employees.to_csv('employees.csv')
-        find_offices('employees.csv', area, fixed_points=fixed_points)
+        find_offices('employees.csv', area, office_size=office_size, fixed_points=fixed_points)
         create_geojson('employees.csv')
         create_geojson('offices.csv')
 
