@@ -26,6 +26,7 @@ class PointManager():
         return self.unassigned.pop(max_location)
     
     def find_highest_concentration(self):
+        '''Returns the point in the unassigned set with the highest estimated concentration using the Gaussian KDE estimator.'''
 
         lat_lng = {
             'lat': [p.lat for p in self.unassigned],
