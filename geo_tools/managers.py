@@ -1,6 +1,7 @@
 import csv
 import pandas as pd
-from scipy.cluster.vq import vq, kmeans    
+from scipy.cluster.vq import vq, kmeans
+from sklearn.neighbors.kde import KernelDensity    
 from .cluster import Cluster
 from .point import Point
 
@@ -24,6 +25,21 @@ class PointManager():
                 max_location = i
         return self.unassigned.pop(max_location)
     
+    def find_highest_concentration(self):
+
+        lat_lng = {
+            'lat': [p.lat for p in self.unassigned],
+            'lng': [p.lng for p in self.unassigned]
+        }
+
+        lat_lng = pd.DataFrame(lat_lng)
+        kde = KernelDensity(bandwidth=0.2, metric='haversine').fit(lat_lng)
+        scored = kde.score_samples(lat_lng)
+        lat_lng = lat_lng.assign(density=scored)
+        highest = lat_lng['density'].idxmax()
+
+        return self.unassigned.pop(highest)
+
     def find_nearest_point(self, point, queue=False):
         '''Looks through the unassigned points and returns the nearest one.
         args:
@@ -90,17 +106,25 @@ class PointManager():
             queue = self.find_nearest_point(nearest, queue=True)
             self.create_cluster_queue(nearest, queue, max_distance)
         
-        centres = self.find_potential_centres(granularity)
-        for c in centres:
-            if self.unassigned:
-                nearest_index = self.find_nearest_point(c)
-                nearest = self.unassigned.pop(nearest_index[0])
-                #logging.debug('Nearest_point of {} is {}'.format(c.rec_id, nearest.rec_id))
-                queue = self.find_nearest_point(nearest, queue=True)
-                self.create_cluster_queue(nearest, queue, max_distance)
+        #Old version using K-Means to find centres
+        #centres = self.find_potential_centres(granularity)
+        #for c in centres:
+        #    if self.unassigned:
+        #        nearest_index = self.find_nearest_point(c)
+        #        nearest = self.unassigned.pop(nearest_index[0])
+        #        #logging.debug('Nearest_point of {} is {}'.format(c.rec_id, nearest.rec_id))
+        #        queue = self.find_nearest_point(nearest, queue=True)
+        #        self.create_cluster_queue(nearest, queue, max_distance)
+
+        #New method using the density of points to create clusters
+        while self.unassigned:
+            nearest = self.find_highest_concentration()
+            #logging.debug('Nearest_point of {} is {}'.format(c.rec_id, nearest.rec_id))
+            queue = self.find_nearest_point(nearest, queue=True)
+            self.create_cluster_queue(nearest, queue, max_distance)
         
-        if self.unassigned:
-            self.find_clusters_top_right(max_distance, pre_defined=False)    
+        #if self.unassigned:
+        #    self.find_clusters_top_right(max_distance, pre_defined=False)    
     
     def find_potential_centres(self, granularity):
         '''Applies the K-mean algortithm on the unassigned points and returns the centres.'''
