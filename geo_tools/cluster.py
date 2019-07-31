@@ -1,6 +1,7 @@
 from .point import Point, DistanceCalculator
 from scipy.optimize import minimize
 
+
 class Cluster():
     def __init__(self, points=[]):
         self.points = points
@@ -8,7 +9,8 @@ class Cluster():
         self.centre = None
         self.staged_centre = None
         self.distance_calculator = DistanceCalculator()
-        
+
+
     def stage_point(self, point, distance=True):
         '''Stages a point in the cluster and calculates the new centre. Returns the max
         distance to the hypothetical new centre. To put add the point to the cluster use
@@ -32,6 +34,7 @@ class Cluster():
         else:
             return self.get_visits(staged=True)
     
+
     def get_visits(self, staged=False):
         
         if not staged:
@@ -41,9 +44,10 @@ class Cluster():
             points = self.staged_points
         
         return sum([p.visits for p in points])
-        
+
+
     def add_staged_point(self):
-        '''If a point was staged earlier, this method adds it definitifly to the list.'''
+        '''If a point was staged earlier, this method adds it permanently to the list.'''
         assert self.staged_points, "No point staged."
         self.points = self.staged_points[:]
         self.staged_points = None
@@ -51,12 +55,14 @@ class Cluster():
         self.staged_centre = None
         return self.centre
     
+
     def remove_staged_point(self):
         '''If a point was staged earlier, this removes the staged point.'''
         assert self.staged_points, "No point staged."
         self.staged_points = None
         self.staged_centre = None
-        
+
+
     def find_centre(self, staged=False):
         
         '''Looks for the centre of the cluster and returns it as a point.
@@ -92,6 +98,7 @@ class Cluster():
         
         return centre
     
+
     def distance_from_points(self, point):
         '''Calculates the distance of a given point to all points in the cluster.'''
         
@@ -100,6 +107,7 @@ class Cluster():
         self.distance_calculator.points = self.points[:] #Shallow copy of list
         
         return self.distance_calculator([point.lat, point.lng])
+
 
     def list_of_distances(self, point=None, centre=False, staged=False):
         
@@ -121,11 +129,13 @@ class Cluster():
         
         return distances
 
+
     def max_distance_from_points(self, point=None, centre=False, staged=False):
         '''Returns the distance of from the given point to the point furthest away 
         in the cluster.'''
         distances = self.list_of_distances(point, centre, staged)
         return max(distances)
+
 
     def avg_distance_from_points(self, point=None, centre=False, staged=False):
         '''Returns the distance of from the given point to the point furthest away 
@@ -133,6 +143,7 @@ class Cluster():
         distances = self.list_of_distances(point, centre, staged)
         return sum(distances)/len(distances)
 
+    
     def points_index(self):
         '''returns a set with the rec_id of all points in the cluster.
         args: /

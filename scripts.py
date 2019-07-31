@@ -1,7 +1,7 @@
 import os, csv, logging
 import pandas as pd
 from .geo_tools import Point, Cluster, PointManager
-from .geojson_transformer import create_geojson
+from csv_to_geojson import create_geojson
 import numpy as np
 from scipy.cluster.vq import vq
 
