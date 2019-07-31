@@ -17,11 +17,16 @@ class DistanceCalculator():
     
 class Point():
     
-    def __init__(self, rec_id, lat, lng, visits=0):
-        self.rec_id = rec_id
+    def __init__(self, lat, lng, **kwargs):
+        if not 'rec_id' in kwargs and not 'id' in kwargs:
+            raise TypeError('Please provide a id when creating points. \
+                Column must be named "id" or "rec_id".')
+
         self.lat = lat
         self.lng = lng
-        self.visits = visits
+        
+        for key, item in kwargs.items():
+            self.__dict__[key] = item
     
     def _haversine(self, lat2, lng2):
         '''Calculates distance between two points on a sphere'''
@@ -42,9 +47,21 @@ class Point():
         return r*c
     
     def dist_to_origin(self):
+        '''Returns the distance to point (0,0) in meters.
+        args:
+            none
+        returns:
+            The distance in meters.
+        '''
         return self.dist_to_other((0,0))
     
     def dist_to_other(self, other):
+        '''Returns the distance to other point in meters.
+        args:
+            Other point or tuple of format (latitude, longitude)
+        returns:
+            The distance in meters.
+        '''
         if isinstance(other, Point):
             return self._haversine(other.lat, other.lng)
         else:

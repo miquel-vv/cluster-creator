@@ -12,7 +12,7 @@ class PointManager():
         self.clusters = []
         self.pre_defined = []
     
-    def find_top_right(self):
+    def find_top_right(self, remove=False):
         '''returns the point in the top right using lat and lng as x and y axis.
         Caution: this method removes the point from the unassigned list!'''
         
@@ -23,9 +23,13 @@ class PointManager():
             if dist_to_origin > max_value:
                 max_value = dist_to_origin
                 max_location = i
-        return self.unassigned.pop(max_location)
+
+        if remove:
+            return self.unassigned.pop(max_location)
+        else:
+            return self.unassigned[max_location]
     
-    def find_highest_concentration(self):
+    def find_highest_concentration(self, remove=False):
         '''Returns the point in the unassigned set with the highest estimated concentration using the Gaussian KDE estimator.
         Caution: this method removes the point from the unassigned list!'''
 
@@ -40,7 +44,10 @@ class PointManager():
         lat_lng = lat_lng.assign(density=scored)
         highest = lat_lng['density'].idxmax()
 
-        return self.unassigned.pop(highest)
+        if remove:
+            return self.unassigned.pop(highest)
+        else:
+            return self.unassigned[highest]
 
     def find_nearest_point(self, point, queue=False):
         '''Looks through the unassigned points and returns the nearest one.
@@ -55,12 +62,11 @@ class PointManager():
             because that makes the pop more efficient.
         '''
         distances = [(i, point.dist_to_other(p), p) for i,p in enumerate(self.unassigned)]
-        distances.sort(key=lambda x:x[1], reverse=True)
         
         if not queue: 
-            return distances.pop(-1)
+            return min(distances)
         else:
-            return distances
+            return distances.sort(key=lambda x:x[1], reverse=True)
 
     def find_fixed_only(self, max_distance, including_fixed=True, double_counting=True):
         '''Clusters the points to the fixed points only and leaves the rest unassigned
@@ -120,7 +126,7 @@ class PointManager():
 
         #New method using the density of points to create clusters
         while self.unassigned:
-            nearest = self.find_highest_concentration()
+            nearest = self.find_highest_concentration(remove=True)
             #logging.debug('Nearest_point of {} is {}'.format(c.rec_id, nearest.rec_id))
             queue = self.find_nearest_point(nearest, queue=True)
             self.create_cluster_queue(nearest, queue, max_distance)
@@ -166,7 +172,7 @@ class PointManager():
         max_iters = len(self.unassigned)
         while self.unassigned and max_iters>0:
             max_iters -= 1
-            top_right = self.find_top_right()
+            top_right = self.find_top_right(remove=True)
             #logging.debug('creating around top_right {}'.format(top_right.rec_id))
             if max_type == 'visits':
                 queue = self.find_nearest_point(top_right, queue=True)
