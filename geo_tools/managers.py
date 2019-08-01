@@ -12,26 +12,41 @@ class PointManager():
         self.clusters = []
         self.pre_defined = []
     
-    def find_top_right(self, remove=False):
+    def get_furthest(self, remove=False, point=None):
         '''returns the point in the top right using lat and lng as x and y axis.
-        Caution: this method removes the point from the unassigned list!'''
+        args:
+            remove: Boolean to define if the point should be taken out of the unassigned list or not.
+            point: Optional Point to calculate the distance from. If not provided it takes the point 
+            with lat=0 and lng=0.
+        returns:
+            The point that is the furthest away.
+        '''
         
-        max_value = 0
-        max_location = 0
-        for i, p in enumerate(self.unassigned):
-            dist_to_origin = p.dist_to_origin()
-            if dist_to_origin > max_value:
-                max_value = dist_to_origin
-                max_location = i
+        if point:
+            assert point.__class__ == Point
+            furthest = max(
+                [(i, p.dist_to_other(point)) for i, p in enumerate(self.unassigned)],
+                key=lambda x: x[1]
+            )
+        else:
+            furthest = max(
+                [(i, p.dist_to_origin()) for i, p in enumerate(self.unassigned)],
+                key=lambda x: x[1]
+            )
 
         if remove:
-            return self.unassigned.pop(max_location)
+            return self.unassigned.pop(furthest[0])
         else:
-            return self.unassigned[max_location]
+            return self.unassigned[furthest[0]]
     
-    def find_highest_concentration(self, remove=False):
-        '''Returns the point in the unassigned set with the highest estimated concentration using the Gaussian KDE estimator.
-        Caution: this method removes the point from the unassigned list!'''
+    def get_highest_concentration(self, remove=False):
+        '''Returns the point in the unassigned set with the highest estimated concentration 
+        using the Gaussian KDE estimator.
+        args:
+            remove: Boolean to define if the point should be taken out of the unassigned list or not.
+        returns:
+            The point with the highest concentration.    
+        '''
 
         lat_lng = {
             'lat': [p.lat for p in self.unassigned],
@@ -49,10 +64,12 @@ class PointManager():
         else:
             return self.unassigned[highest]
 
-    def find_nearest_point(self, point, queue=False):
+    def get_nearest(self, point, remove=False, queue=False):
         '''Looks through the unassigned points and returns the nearest one.
         args:
             point: the point from which you want to find the nearest to.
+            remove: Boolean to define if the point should be taken out of the unassigned list or not.
+                Does not work with queue, a queue will not be removed from the unassigned list.
             queue: Boolean to identify if only the nearest point needs to be returned or
                 a list of points sorted based on distance in descending order.
         output:
@@ -61,10 +78,17 @@ class PointManager():
             If queue is True: a list of tuples as above sorted in descending order. Descending
             because that makes the pop more efficient.
         '''
+        if remove and queue:
+            raise TypeError("Either remove or queue must be False. A queue will not be removed from the list.")
+        
         distances = [(i, point.dist_to_other(p), p) for i,p in enumerate(self.unassigned)]
         
         if not queue: 
-            return min(distances)
+            nearest = min(distances)
+            if remove:
+                self.unassigned.pop(nearest[0])
+
+            return nearest
         else:
             return distances.sort(key=lambda x:x[1], reverse=True)
 
@@ -81,12 +105,11 @@ class PointManager():
         for p in self.pre_defined:
             if self.unassigned:
                 if not including_fixed:
-                    nearest_index = self.find_nearest_point(p)
-                    point = self.unassigned.pop(nearest_index[0])
+                    nearest = self.get_nearest(point=p, remove=True)
+                    point = nearest[2]
                 else:
                     point = p
-                #logging.debug('Nearest_point of {} is {}'.format(p.rec_id, nearest.rec_id))
-                queue = self.find_nearest_point(point, queue=True)
+                queue = self.get_nearest(point, queue=True)
                 self.create_cluster_fill(point, queue, max_distance=max_distance, double_counting=double_counting)
     
     def find_clusters_fill(self, max_visits):
@@ -94,11 +117,11 @@ class PointManager():
 
         for p in self.pre_defined:
             if self.unassigned:
-                nearest_index = self.find_nearest_point(p)
-                nearest = self.unassigned.pop(nearest_index[0])
-                #logging.debug('Nearest_point of {} is {}'.format(p.rec_id, nearest.rec_id))
-                queue = self.find_nearest_point(nearest, queue=True)
-                self.create_cluster_fill(nearest, queue, max_visits)
+                nearest = self.get_nearest(point=p, remove=True)
+                nearest_point = nearest[2]
+
+                queue = self.get_nearest(nearest_point, queue=True)
+                self.create_cluster_fill(nearest_point, queue, max_visits)
         
         if self.unassigned:
             self.find_clusters_top_right(max_visits, max_type='visits', pre_defined=False)
@@ -108,52 +131,18 @@ class PointManager():
         those first then fills in the furthest point.'''
         
         for p in self.pre_defined:
-            nearest_index = self.find_nearest_point(p)
-            nearest = self.unassigned.pop(nearest_index[0])
+            nearest = self.get_nearest(p, remove=True)
+            nearest_point = nearest[2]
             #logging.debug('Nearest_point of {} is {}'.format(p.rec_id, nearest.rec_id))
-            queue = self.find_nearest_point(nearest, queue=True)
-            self.create_cluster_queue(nearest, queue, max_distance)
+            queue = self.get_nearest(nearest_point, queue=True)
+            self.create_cluster_queue(nearest_point, queue, max_distance)
         
-        #Old version using K-Means to find centres
-        #centres = self.find_potential_centres(granularity)
-        #for c in centres:
-        #    if self.unassigned:
-        #        nearest_index = self.find_nearest_point(c)
-        #        nearest = self.unassigned.pop(nearest_index[0])
-        #        #logging.debug('Nearest_point of {} is {}'.format(c.rec_id, nearest.rec_id))
-        #        queue = self.find_nearest_point(nearest, queue=True)
-        #        self.create_cluster_queue(nearest, queue, max_distance)
-
-        #New method using the density of points to create clusters
         while self.unassigned:
-            nearest = self.find_highest_concentration(remove=True)
+            nearest = self.get_highest_concentration(remove=True)
             #logging.debug('Nearest_point of {} is {}'.format(c.rec_id, nearest.rec_id))
-            queue = self.find_nearest_point(nearest, queue=True)
+            queue = self.get_nearest(nearest, queue=True)
             self.create_cluster_queue(nearest, queue, max_distance)
-        
-        #if self.unassigned:
-        #    self.find_clusters_top_right(max_distance, pre_defined=False)    
-    
-    def find_potential_centres(self, granularity):
-        '''Applies the K-mean algortithm on the unassigned points and returns the centres.'''
-        
-        index = []
-        lat = []
-        lng = []
-        
-        for i, p in enumerate(self.unassigned):
-            index.append(i)
-            lat.append(p.lat)
-            lng.append(p.lng)
-            
-        lat_lng = {'lat': lat,
-                   'lng': lng}
 
-        lat_lng = pd.DataFrame(lat_lng, index=index)
-        guess = max([len(lat_lng)//granularity, 2]) #The initial guess can't be zero.
-        centres,_ = kmeans(lat_lng, guess)
-
-        return [Point('start', p[0], p[1]) for p in centres]
     
     def find_clusters_top_right(self, maximum, max_type='distance',pre_defined=True):
         '''Analyses the unassigned list of points and puts them into clusters
@@ -172,10 +161,9 @@ class PointManager():
         max_iters = len(self.unassigned)
         while self.unassigned and max_iters>0:
             max_iters -= 1
-            top_right = self.find_top_right(remove=True)
-            #logging.debug('creating around top_right {}'.format(top_right.rec_id))
+            top_right = self.get_furthest(remove=True)
             if max_type == 'visits':
-                queue = self.find_nearest_point(top_right, queue=True)
+                queue = self.get_nearest(top_right, queue=True)
                 self.create_cluster_fill(top_right, queue, max_visits=maximum)
             else:
                 self.create_cluster(top_right, maximum, moving=False)
@@ -195,15 +183,13 @@ class PointManager():
             No output. Adds the created cluster to the cluster list of this class instance.
         '''
         
-        #logging.info('Creating cluster for {}'.format(point.rec_id))
         new_cluster = Cluster([point])
         
         max_distance_exceeded = False
         new_centre = point
         while self.unassigned and not max_distance_exceeded:
-            min_el = self.find_nearest_point(new_centre)
-            minimum = self.unassigned.pop(min_el[0])
-            #logging.debug('Nearest point is {} at {}'.format(minimum.rec_id, min_el[1]))
+            min_el = self.get_nearest(point=new_centre, remove=True)
+            minimum = min_el[2]
             
             new_dist = new_cluster.stage_point(minimum)
             if new_dist > (max_distance*1000):
@@ -232,13 +218,10 @@ class PointManager():
         new_cluster = Cluster([point])
         to_pop = []
         max_distance_exceeded = False
-        #logging.debug('Creating the queue thinghy')
         
         while not max_distance_exceeded and queue:
             nearest = queue.pop(-1)
-            #logging.debug('Nearest point is {}'.format(nearest[2].rec_id))
             if not nearest[1] > (max_distance*1000):
-                #logging.debug('adding point {}'.format(nearest[2].rec_id))
                 to_pop.append(nearest[0])
                 new_cluster.stage_point(nearest[2])
                 new_cluster.add_staged_point()
@@ -268,7 +251,6 @@ class PointManager():
         
         while not max_reached and queue:
             nearest = queue.pop(-1)
-            #logging.debug('Nearest point is {}'.format(nearest[2].rec_id))
             visits += nearest[2].visits
             
             if (visits > max_visits and max_visits) or nearest[1]>(max_distance*1000):

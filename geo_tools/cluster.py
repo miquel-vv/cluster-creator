@@ -3,7 +3,8 @@ from scipy.optimize import minimize
 
 
 class Cluster():
-    def __init__(self, points=[]):
+    def __init__(self, start_point, points=[]):
+        self.start = start_point
         self.points = points
         self.staged_points = []
         self.centre = None
@@ -91,7 +92,7 @@ class Cluster():
                            initial_guess, 
                            method='L-BFGS-B', 
                            bounds=bnds)
-        centre = Point('centre', minimal['x'][0], minimal['x'][1])
+        centre = Point(minimal['x'][0], minimal['x'][1], **{'id': 'centre'})
         
         if not staged:
             self.centre = centre
