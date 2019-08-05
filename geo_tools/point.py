@@ -1,4 +1,8 @@
+from .errors import MaxReachedException
 import math
+from scipy.optimize import minimize
+from sklearn.neighbors.kde import KernelDensity
+import pandas as pd
 
 class DistanceCalculator():
     """A Class to support the objective function that will need to be minimized"""
@@ -66,3 +70,143 @@ class Point():
             return self._haversine(other.lat, other.lng)
         else:
             return self._haversine(other[0], other[1])
+
+class PointGroup:
+    def __init__(self, points, max_distance=False, max_visits=False):
+        if isinstance(points, Point):
+            self._start_point = points
+            self._points = [points]
+            self._centre = points
+        elif isinstance(points, list):
+            self._points = points
+            self._centre = self.get_centre()
+        
+        if max_distance:
+            self._max_distance = max_distance
+            self._current_distance = self.get_furthest()[1]
+        
+        if max_visits:
+            self._max_visits = max_visits
+            self._current_visits = sum([point.visits for point in self._points])
+
+    def get_furthest(self, remove=False, point=None):
+        '''Returns the furthest point in the group from a given point. If no point is given
+        returns the furthest point from the centre of the group.
+        args:
+            point: A Point object to calculate the distance from.
+            remove: Whether or not the furthest point needs to be removed.
+        returns:
+            tuple: (furthest_point, distance)'''
+        
+        if point:
+            assert point.__class__ == Point
+            furthest = max(
+                [(i, p.dist_to_other(point)) for i, p in enumerate(self._points)],
+                key=lambda x: x[1]
+            )
+        else:
+            furthest = max(
+                [(i, p.dist_to_other(self._centre)) for i, p in enumerate(self._points)],
+                key=lambda x: x[1]
+            )
+
+        if remove:
+            return self._points.pop(furthest[0]), furthest[1]
+        
+        return self._points[furthest[0]], furthest[1]
+    
+    def get_nearest(self, point, remove=False, queue=False):
+        '''Looks through the unassigned points and returns the nearest one.
+        args:
+            point: the point from which you want to find the nearest to.
+            remove: Boolean to define if the point should be taken out of the unassigned list or not.
+                Does not work with queue, a queue will not be removed from the unassigned list.
+            queue: Boolean to identify if only the nearest point needs to be returned or
+                a list of points sorted based on distance in descending order.
+        output:
+            if queue is False: a tuple (index, distance, point) returning the index of the point in the
+            unassigned list, the distance to that point and the point itself.
+            If queue is True: a list of tuples as above sorted in descending order. Descending
+            because that makes the pop more efficient.
+        '''
+        if remove and queue:
+            raise TypeError("Either remove or queue must be False. A queue will not be removed from the list.")
+        
+        distances = [(i, point.dist_to_other(p), p) for i,p in enumerate(self._points)]
+        
+        if not queue: 
+            nearest = min(distances)
+            if remove:
+                self._points.pop(nearest[0])
+
+            return nearest
+        else:
+            return distances.sort(key=lambda x:x[1], reverse=True)
+
+    def get_center(self, update=True):
+        if update:
+            b_lat = (-90, 90)
+            b_lng = (-180, 180)
+            bnds = (b_lat, b_lng)
+            
+            initial_guess = [self._points[0].lat, self._points[0].lng]
+            
+            minimal = minimize(self.distance_calculator, 
+                            initial_guess, 
+                            method='L-BFGS-B', 
+                            bounds=bnds)
+            self._centre = Point(minimal['x'][0], minimal['x'][1], **{'id': 'centre'})
+    
+        return self._centre
+    
+    def get_highest_concentration(self, remove=False):
+        '''Returns the point in the unassigned set with the highest estimated concentration 
+        using the Gaussian KDE estimator.
+        args:
+            remove: Boolean to define if the point should be taken out of the unassigned list or not.
+        returns:
+            The point with the highest concentration.    
+        '''
+
+        lat_lng = {
+            'lat': [p.lat for p in self._points],
+            'lng': [p.lng for p in self._points]
+        }
+
+        lat_lng = pd.DataFrame(lat_lng)
+        kde = KernelDensity(bandwidth=0.2, metric='haversine').fit(lat_lng)
+        scored = kde.score_samples(lat_lng)
+        lat_lng = lat_lng.assign(density=scored)
+        highest = lat_lng['density'].idxmax()
+
+        if remove:
+            return self._points.pop(highest)
+        else:
+            return self._points[highest]
+
+    def add_point(self, point, update_center=False):
+        '''Adds point and checks that no max is exceeded.'''
+        assert isinstance(point, Point)
+
+        if not self._max_distance and self._max_visits:
+            self._points.append(point)
+        
+        new_visits = self._current_visits + point.visits
+        if new_visits > self._max_visits:
+            raise MaxReachedException("Number of visits exceeded.")
+        
+        if update_center:
+            self._points.append(point)
+            self.get_center()
+        
+        new_distance = point.dist_to_other(self._centre)
+        if new_distance > self._max_distance:
+            self._points.pop(-1)
+            raise MaxReachedException("Max distance from centre exceeded.")
+        
+        self._current_distance = new_distance
+        self._current_visits = new_visits
+        if not update_center:
+            self._points.append(point)
+        
+        
