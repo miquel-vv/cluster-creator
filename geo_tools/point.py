@@ -73,23 +73,35 @@ class Point():
 
 class PointGroup:
     def __init__(self, points, max_distance=False, max_visits=False):
+
         if isinstance(points, Point):
+            if isinstance(max_distance, Point):
+                raise TypeError("If you want to instantiate with multiple points, pass them as a list, not as individual args.")
+
             self._start_point = points
             self._points = [points]
-            self._centre = points
+            self._center = points
+
+
         elif isinstance(points, list):
+            if not all(isinstance(p, Point) for p in points):
+                raise TypeError("The list can only contain Point.")
+
             self._points = points
-            self._centre = self.get_centre()
+            self._center = self.get_center()
+        else:
+            raise TypeError("PointGroup only takes points or a list of points.")
         
-        if max_distance:
+        if max_distance==True:
             self._max_distance = max_distance
             self._current_distance = self.get_furthest()[1]
         
-        if max_visits:
+        if max_visits==True:
             self._max_visits = max_visits
             self._current_visits = sum([point.visits for point in self._points])
 
-    def get_furthest(self, remove=False, point=None):
+
+    def get_furthest(self, point=None, remove=False,):
         '''Returns the furthest point in the group from a given point. If no point is given
         returns the furthest point from the centre of the group.
         args:
@@ -99,18 +111,18 @@ class PointGroup:
             tuple: (furthest_point, distance)'''
         
         if point:
-            assert point.__class__ == Point
+            assert isinstance(point, Point)
             furthest = max(
                 [(i, p.dist_to_other(point)) for i, p in enumerate(self._points)],
                 key=lambda x: x[1]
             )
         else:
             furthest = max(
-                [(i, p.dist_to_other(self._centre)) for i, p in enumerate(self._points)],
+                [(i, p.dist_to_other(self._center)) for i, p in enumerate(self._points)],
                 key=lambda x: x[1]
             )
 
-        if remove:
+        if remove==True:
             return self._points.pop(furthest[0]), furthest[1]
         
         return self._points[furthest[0]], furthest[1]
@@ -148,16 +160,17 @@ class PointGroup:
             b_lat = (-90, 90)
             b_lng = (-180, 180)
             bnds = (b_lat, b_lng)
-            
+
+            distance_calculator = DistanceCalculator(self._points)
             initial_guess = [self._points[0].lat, self._points[0].lng]
             
-            minimal = minimize(self.distance_calculator, 
+            minimal = minimize(distance_calculator, 
                             initial_guess, 
                             method='L-BFGS-B', 
                             bounds=bnds)
-            self._centre = Point(minimal['x'][0], minimal['x'][1], **{'id': 'centre'})
+            self._center = Point(minimal['x'][0], minimal['x'][1], **{'id': 'centre'})
     
-        return self._centre
+        return self._center
     
     def get_highest_concentration(self, remove=False):
         '''Returns the point in the unassigned set with the highest estimated concentration 
@@ -199,7 +212,7 @@ class PointGroup:
             self._points.append(point)
             self.get_center()
         
-        new_distance = point.dist_to_other(self._centre)
+        new_distance = point.dist_to_other(self._center)
         if new_distance > self._max_distance:
             self._points.pop(-1)
             raise MaxReachedException("Max distance from centre exceeded.")
