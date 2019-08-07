@@ -67,7 +67,7 @@ class TestPointGroup(unittest.TestCase):
             **test_data['point_two'][2]
         )
         test_data['point_three'][2]['id'] = 'Southwark'
-        self.point_two = Point(
+        self.point_three = Point(
             test_data['point_three'][0], 
             test_data['point_three'][1], 
             **test_data['point_three'][2]
@@ -82,25 +82,44 @@ class TestPointGroup(unittest.TestCase):
         with self.assertRaises(TypeError):
             PointGroup([self.point_one, self.point_two, 'not_a_point'])
         
+        with self.assertRaises(TypeError):
+            PointGroup(self.point_one, self.point_two)
+        
     def test_center(self):
         group = PointGroup(self.point_one)
         self.assertEqual(group.get_center(update=False), self.point_one)
 
         self.assertAlmostEqual(
             self.group.get_center().lat,
-            51.513638,
+            51.51012605,
             5
         )
 
         self.assertAlmostEqual(
             self.group.get_center().lng,
-            -0.099805,
+            -0.099762202,
             5
         )
     
     def test_get_furthest(self):
-        self.assertEqual(self.group.get_furthest(self.point_one), self.point_two)
-        self.assertEqual(self.group.get_furthest(),)
+        away_from_center = self.group.get_furthest()
+        self.assertEqual(away_from_center[0], self.point_two)
+        self.assertAlmostEqual(
+            away_from_center[1],
+            2334.39333,
+            2
+        )
+
+        away_from_two = self.group.get_furthest(self.point_two)
+        self.assertEqual(away_from_two[0], self.point_three)
+        self.assertAlmostEqual(
+            away_from_two[1],
+            2836.5123725,
+            2
+        )
+    
+    def test_get_nearest(self):
+        point_close_to_two = Point(51.501810, -0.140624, **{'id'='Victoria Memorial'})
 
 if __name__=='__main__':
     unittest.main()

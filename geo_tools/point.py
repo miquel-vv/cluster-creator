@@ -101,7 +101,7 @@ class PointGroup:
             self._current_visits = sum([point.visits for point in self._points])
 
 
-    def get_furthest(self, point=None, remove=False,):
+    def get_furthest(self, point=None, remove=False):
         '''Returns the furthest point in the group from a given point. If no point is given
         returns the furthest point from the centre of the group.
         args:
@@ -147,7 +147,7 @@ class PointGroup:
         distances = [(i, point.dist_to_other(p), p) for i,p in enumerate(self._points)]
         
         if not queue: 
-            nearest = min(distances)
+            nearest = min(distances, key=lambda x:x[1])
             if remove:
                 self._points.pop(nearest[0])
 
