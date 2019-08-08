@@ -24,7 +24,7 @@ class Point():
     def __init__(self, lat, lng, **kwargs):
         if not 'rec_id' in kwargs and not 'id' in kwargs:
             raise TypeError('Please provide a id when creating points. \
-                Column must be named "id" or "rec_id".')
+                Column must be named "id".')
 
         self.lat = lat
         self.lng = lng
@@ -79,7 +79,7 @@ class PointGroup:
                 raise TypeError("If you want to instantiate with multiple points, pass them as a list, not as individual args.")
 
             self._start_point = points
-            self._points = [points]
+            self._points = {points}
             self._center = points
 
 
@@ -87,7 +87,7 @@ class PointGroup:
             if not all(isinstance(p, Point) for p in points):
                 raise TypeError("The list can only contain Point.")
 
-            self._points = points
+            self._points = {p for p in points}
             self._center = self.get_center()
         else:
             raise TypeError("PointGroup only takes points or a list of points.")
@@ -102,7 +102,17 @@ class PointGroup:
         
         if max_visits:
             self._current_visits = sum([point.visits for point in self._points])
+    
+    def __bool__(self):
+        if len(self._points) == 0:
+            return False
+        return True
 
+    def get_max_distance(self):
+        return max([p.dist_to_other(self._center) for p in self._points])
+
+    def get_visits(self):
+        return sum([p.visits for p in self._points])
 
     def get_furthest(self, point=None, remove=False):
         '''Returns the furthest point in the group from a given point. If no point is given
@@ -116,19 +126,19 @@ class PointGroup:
         if point:
             assert isinstance(point, Point)
             furthest = max(
-                [(i, p.dist_to_other(point)) for i, p in enumerate(self._points)],
+                [(p, p.dist_to_other(point)) for p in self._points],
                 key=lambda x: x[1]
             )
         else:
             furthest = max(
-                [(i, p.dist_to_other(self._center)) for i, p in enumerate(self._points)],
+                [(p, p.dist_to_other(self._center)) for p in self._points],
                 key=lambda x: x[1]
             )
 
         if remove==True:
-            return self._points.pop(furthest[0]), furthest[1]
-        
-        return self._points[furthest[0]], furthest[1]
+            self._points.remove(furthest[0])
+            
+        return furthest
     
     def get_nearest(self, point, remove=False, queue=False):
         '''Looks through the unassigned points and returns the nearest one.
@@ -139,7 +149,7 @@ class PointGroup:
             queue: Boolean to identify if only the nearest point needs to be returned or
                 a list of points sorted based on distance in descending order.
         output:
-            if queue is False: a tuple (index, distance, point) returning the index of the point in the
+            if queue is False: a tuple (point, distance) returning the index of the point in the
             unassigned list, the distance to that point and the point itself.
             If queue is True: a list of tuples as above sorted in descending order. Descending
             because that makes the pop more efficient.
@@ -147,12 +157,12 @@ class PointGroup:
         if remove and queue:
             raise TypeError("Either remove or queue must be False. A queue will not be removed from the list.")
         
-        distances = [(i, point.dist_to_other(p), p) for i,p in enumerate(self._points)]
+        distances = [(p, point.dist_to_other(p)) for p in self._points]
         
         if not queue: 
             nearest = min(distances, key=lambda x:x[1])
             if remove:
-                self._points.pop(nearest[0])
+                self._points.remove(nearest[0])
 
             return nearest
         else:
@@ -165,8 +175,11 @@ class PointGroup:
             b_lng = (-180, 180)
             bnds = (b_lat, b_lng)
 
-            distance_calculator = DistanceCalculator(self._points)
-            initial_guess = [self._points[0].lat, self._points[0].lng]
+            temp_point_list = list(self._points)
+            distance_calculator = DistanceCalculator(temp_point_list)
+            initial_lat = sum(p.lat for p in temp_point_list)/len(temp_point_list)
+            initial_lng = sum(p.lng for p in temp_point_list)/len(temp_point_list)
+            initial_guess = [initial_lat, initial_lng]
             
             minimal = minimize(distance_calculator, 
                             initial_guess, 
@@ -184,10 +197,11 @@ class PointGroup:
         returns:
             The point with the highest concentration.    
         '''
+        temp_point_list = list(self._points) #To preserve order going through kde estimation.
 
         lat_lng = {
-            'lat': [p.lat for p in self._points],
-            'lng': [p.lng for p in self._points]
+            'lat': [p.lat for p in temp_point_list],
+            'lng': [p.lng for p in temp_point_list]
         }
 
         lat_lng = pd.DataFrame(lat_lng)
@@ -196,10 +210,12 @@ class PointGroup:
         lat_lng = lat_lng.assign(density=scored)
         highest = lat_lng['density'].idxmax()
 
+        highest = temp_point_list[highest]
+
         if remove:
-            return self._points.pop(highest)
-        else:
-            return self._points[highest]
+            self._points.remove(highest)
+    
+        return highest
 
     def add_point(self, point, update_center=False):
         '''Adds point and checks that no max is exceeded. Ignores points who dont have that attribute.
@@ -211,10 +227,9 @@ class PointGroup:
         assert isinstance(point, Point)
 
         if not self._max_distance and not self._max_visits:
-            self._points.append(point)
+            self._points.add(point)
             if update_center:
                 self.get_center()
-            return 
         
         if self._max_visits:
             try:
@@ -229,18 +244,21 @@ class PointGroup:
         
         if self._max_distance:
             if update_center:
-                self._points.append(point)
+                self._points.add(point)
                 self.get_center()
             
             new_distance = point.dist_to_other(self._center)
             if new_distance > self._max_distance:
                 if update_center:
-                    self._points.pop(-1)
+                    self._points.remove(point)
                 raise MaxReachedException("Max distance from centre exceeded.")
             
             self._current_distance = new_distance
         
-        if not update_center:
-            self._points.append(point)
-        
-        
+        self._points.add(point)
+
+    def get_points(self, point):
+        for point, dist in self.get_nearest(point, queue=True):
+            yield point
+            self._points.remove(point)
+        return
