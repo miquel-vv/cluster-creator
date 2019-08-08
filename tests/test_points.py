@@ -1,7 +1,7 @@
 import unittest
 
-from ..geo_tools.point import Point, PointGroup
-from ..geo_tools.errors import MaxReachedException
+from geo_tools.point import Point, PointGroup
+from geo_tools.errors import MaxReachedException
 
 test_data = {
     'point_one': [51.513638, -0.099805, {'id': 'paul', 'other': 5, 'visits': 7.2}],
