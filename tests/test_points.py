@@ -1,6 +1,7 @@
 import unittest
 
 from ..geo_tools.point import Point, PointGroup
+from ..geo_tools.errors import MaxReachedException
 
 test_data = {
     'point_one': [51.513638, -0.099805, {'id': 'paul', 'other': 5, 'visits': 7.2}],
@@ -73,7 +74,7 @@ class TestPointGroup(unittest.TestCase):
             **test_data['point_three'][2]
         )
 
-        self.group = PointGroup([point_one, point_two, point_three])
+        self.group = PointGroup([self.point_one, self.point_two, self.point_three])
     
     def test_instantiation(self):
         with self.assertRaises(TypeError):
@@ -100,6 +101,12 @@ class TestPointGroup(unittest.TestCase):
             -0.099762202,
             5
         )
+
+        group = PointGroup(self.point_one)
+        group.add_point(self.point_three)
+
+        self.assertEqual(group.get_center(update=False), self.point_one)
+        self.assertNotEqual(group.get_center(), self.point_one)
     
     def test_get_furthest(self):
         away_from_center = self.group.get_furthest()
@@ -117,9 +124,54 @@ class TestPointGroup(unittest.TestCase):
             2836.5123725,
             2
         )
+        
+        self.group.get_furthest(remove=True)
+        self.assertCountEqual(self.group._points, [self.point_one, self.point_three])
     
     def test_get_nearest(self):
-        point_close_to_two = Point(51.501810, -0.140624, **{'id'='Victoria Memorial'})
+        point_close_to_two = Point(51.501810, -0.140624, **{'id':'Victoria Memorial'})
+        nearest = self.group.get_nearest(point_close_to_two)
+
+        self.assertEqual(nearest[2], self.point_two)
+
+        nearest_test = [self.point_two, self.point_one, self.point_three]
+        nearest_queue = [p[2] for p in self.group.get_nearest(point_close_to_two, queue=True)]
+
+        self.assertEqual(nearest_test, nearest_queue)
+
+        self.group.get_nearest(point_close_to_two, remove=True)
+        self.assertCountEqual(self.group._points, [self.point_one, self.point_three])
+    
+    def test_highest_concentration(self):
+        between_one_and_three = Point(51.508813, -0.094113, id='southwark bridge')
+        self.group.add_point(between_one_and_three)
+        self.assertEqual(self.group.get_highest_concentration(), between_one_and_three)
+        self.group.get_highest_concentration(remove=True)
+        self.assertCountEqual(self.group._points, [self.point_one, self.point_two, self.point_three])
+    
+    def test_add_point(self):
+        extra_point = Point(51.509751, -0.082530, id='st. dunstan')
+        current_center = self.group.get_center()
+        self.group.add_point(extra_point, update_center=True)
+        self.assertNotEqual(current_center, self.group._center)
+
+        group = PointGroup(self.point_one, max_distance=1500)
+        group.add_point(self.point_three, update_center=True)
+
+        self.assertNotEqual(group._center, self.point_one)
+        self.assertNotEqual(group._center, self.point_three)
+        self.assertCountEqual(group._points, [self.point_one, self.point_three])
+
+        with self.assertRaises(MaxReachedException):
+            group.add_point(self.point_two)
+        
+        self.point_two.visits = 2
+        group = PointGroup(self.point_one, max_visits=10)
+        group.add_point(self.point_two)
+
+        with self.assertRaises(MaxReachedException):
+            group.add_point(self.point_three)
+        
 
 if __name__=='__main__':
     unittest.main()

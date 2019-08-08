@@ -92,12 +92,15 @@ class PointGroup:
         else:
             raise TypeError("PointGroup only takes points or a list of points.")
         
-        if max_distance==True:
-            self._max_distance = max_distance
+        self._max_distance = max_distance
+        self._current_distance = 0
+        self._max_visits = max_visits
+        self._current_visits = 0
+
+        if max_distance:
             self._current_distance = self.get_furthest()[1]
         
-        if max_visits==True:
-            self._max_visits = max_visits
+        if max_visits:
             self._current_visits = sum([point.visits for point in self._points])
 
 
@@ -153,7 +156,8 @@ class PointGroup:
 
             return nearest
         else:
-            return distances.sort(key=lambda x:x[1], reverse=True)
+            distances.sort(key=lambda x:x[1])
+            return distances
 
     def get_center(self, update=True):
         if update:
@@ -198,27 +202,44 @@ class PointGroup:
             return self._points[highest]
 
     def add_point(self, point, update_center=False):
-        '''Adds point and checks that no max is exceeded.'''
+        '''Adds point and checks that no max is exceeded. Ignores points who dont have that attribute.
+        args:
+            point (Point): The point to be added.
+            update_center (Boolean): Whether the center of the cluster should be recalculated before checking the distance.
+        returns:
+            void.'''
         assert isinstance(point, Point)
 
-        if not self._max_distance and self._max_visits:
+        if not self._max_distance and not self._max_visits:
             self._points.append(point)
+            if update_center:
+                self.get_center()
+            return 
         
-        new_visits = self._current_visits + point.visits
-        if new_visits > self._max_visits:
-            raise MaxReachedException("Number of visits exceeded.")
+        if self._max_visits:
+            try:
+                new_visits = self._current_visits + point.visits
+            except AttributeError:
+                new_visits = self._current_visits
+
+            if new_visits > self._max_visits:
+                raise MaxReachedException("Number of visits exceeded.")
+            
+            self._current_visits = new_visits
         
-        if update_center:
-            self._points.append(point)
-            self.get_center()
+        if self._max_distance:
+            if update_center:
+                self._points.append(point)
+                self.get_center()
+            
+            new_distance = point.dist_to_other(self._center)
+            if new_distance > self._max_distance:
+                if update_center:
+                    self._points.pop(-1)
+                raise MaxReachedException("Max distance from centre exceeded.")
+            
+            self._current_distance = new_distance
         
-        new_distance = point.dist_to_other(self._center)
-        if new_distance > self._max_distance:
-            self._points.pop(-1)
-            raise MaxReachedException("Max distance from centre exceeded.")
-        
-        self._current_distance = new_distance
-        self._current_visits = new_visits
         if not update_center:
             self._points.append(point)
         
