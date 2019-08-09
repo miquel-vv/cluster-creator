@@ -262,3 +262,8 @@ class PointGroup:
             yield point
             self._points.remove(point)
         return
+
+    def remove_all(self):
+        points = self._points
+        self._points = set()
+        return points
