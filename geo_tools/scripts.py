@@ -1,40 +1,63 @@
 import os, csv, logging
 import pandas as pd
-from .point import Point, PointGroup, 
-from .manager import PointManagers
+from .point import Point, PointGroup
+from .manager import PointManager
 from csv_to_geojson import create_geojson
 import numpy as np
 from scipy.cluster.vq import vq
 
 logging.basicConfig(level=logging.DEBUG)
 
-def two_step_clustering(file, max_visits, areas, fixed_points=None):
+def two_step_clustering(filename, max_visits, areas, fixed_points=None):
     '''
     args: 
-        partner_filename: The file with all the partners to be analysed
+        filename: The file with all the partners to be analysed
         weightings: the file with the weightings of the adf-levels
         max_visits: The max amount of visits one employee can carry out.
         areas: A list of areas to be analysed, all in KMs.
     output:
         The whole file structure containing all the necessary files for mapping.
     '''
-    folder = os.path.dirname(file)
+    folder = os.path.dirname(filename)
     if not folder:
         folder = os.getcwd()
+    else:
+        os.chdir(folder)
 
-    logging.info('Creating folders...')
-    for area in areas:
-        os.mkdir(os.path.join(folder, str(area)+'km'))
+    equal_amount_clustering(filename, max_visits, 'employees.csv')
+    highest_concentration_clustering(
+        'employees.csv',  
+        areas=areas,
+        output_file='offices.csv',
+        fixed_points=fixed_points
+    )
+
+def equal_amount_clustering(filename, max_visits, output_name):
+    folder = os.path.dirname(filename)
+    if not folder:
+        folder = os.getcwd()
+    else:
+        os.chdir(folder)
 
     logging.info('Running first clustering...')
 
-    partners = PointManager(pd.read_csv(file, index_col=0))
+    partners = PointManager(pd.read_csv(filename, index_col=0))
     partners.cluster('equal_amount', max_visits=max_visits)
-    partners.get_assigned_points().to_csv(file)
-    employees = PointManager(partners.get_centers())
+    partners.get_assigned_points().to_csv(filename)
+    partners.get_centers().to_csv(output_name)
 
     logging.info('Creating partners geojson...')
-    create_geojson(file)
+    create_geojson(filename)
+
+def highest_concentration_clustering(filename, areas, output_file, fixed_points=None, min_size=7):
+
+    folder = os.path.dirname(filename)
+    if not folder:
+        folder = os.getcwd()
+    else:
+        os.chdir(folder)
+
+    employees = PointManager(pd.read_csv(filename))
 
     for area in areas:
         os.mkdir(os.path.join(folder, str(area)+'km'))
@@ -42,12 +65,12 @@ def two_step_clustering(file, max_visits, areas, fixed_points=None):
 
         logging.info('Running subclustering for '+str(area)+' KM')
 
-        employees.cluster('highest_concentration', max_distance=area, pre_defined=fixed_points)
-        employees.get_assigned_points().to_csv('employees.csv')
-        employees.get_centers(min_size=7).to_csv('offices.csv')
+        employees.cluster('highest_concentration', max_distance=area*1000, pre_defined=fixed_points)
+        employees.get_assigned_points().to_csv(filename)
+        employees.get_centers(min_size=min_size).to_csv(output_file)
 
-        create_geojson('employees.csv')
-        create_geojson('offices.csv')
+        create_geojson(filename)
+        create_geojson(output_file)
 
         employees.reset()
         os.chdir(folder)
