@@ -12,7 +12,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/miquel-vv/cluster-creator",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages(exclude=['tests']),
     install_requires=[
         'numpy',
         'pandas',
@@ -27,6 +27,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     entry_points={
-        'console_scripts': ['two_step_clustering=geo_tools.scripts:main']
+        'console_scripts': ['two_step_clustering=geo_tools.command_line:main']
     }
 )
